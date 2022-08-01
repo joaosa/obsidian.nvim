@@ -1,24 +1,31 @@
-use nvim_oxi::{self as oxi, Dictionary};
+use nvim_oxi::{self as oxi, object, Dictionary, Function, Object, ObjectKind, Result};
+use serde::Deserialize;
 
-mod client;
-mod commands;
-mod config;
-mod error;
-mod hlgroups;
-mod messages;
-mod note;
-mod note_ref;
-mod setup;
-mod util;
+#[derive(Default, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Config {
+    #[serde(default)]
+    pub dir: String,
+}
 
-pub use client::Client;
-pub use error::{Error, Result};
-pub use note::Note;
-pub use note_ref::NoteRef;
+fn setup(preferences: Object) -> Result<()> {
+    let config = match preferences.kind() {
+        ObjectKind::Nil => Config::default(),
+        _ => {
+            let deserializer = object::Deserializer::new(preferences);
+            Config::deserialize(deserializer)?
+        }
+    };
+
+    oxi::print!("All good! {config:?}");
+
+    Ok(())
+}
 
 #[oxi::module]
 fn obsidian() -> oxi::Result<Dictionary> {
-    let client = Client::new();
-
-    Ok(client.build_api())
+    Ok(Dictionary::from_iter([(
+        "setup",
+        Object::from(Function::from_fn(setup)),
+    )]))
 }
